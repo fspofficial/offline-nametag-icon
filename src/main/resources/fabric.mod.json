@@ -1,0 +1,34 @@
+{
+	"schemaVersion": 1,
+	"id": "offlinenametagicon",
+	"version": "${version}",
+	"name": "Offline Nametag Icon",
+	"description": "Adds a badge next to player nametags",
+	"authors": [
+		"SyanicXD"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/project/offline-nametag-icon",
+		"sources": "https://github.com/fspofficial/offline-nametag-icon"
+	},
+	"license": "DSMSLv2",
+	"icon": "assets/offlinenametagicon/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.syanicxd.offlinenametagicon.offlinenametagiconMod"
+		]
+	},
+	"mixins": [
+		"offlinenametagicon.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.14.21",
+		"minecraft": ">=1.20 <=1.20.6",
+		"java": ">=17",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
