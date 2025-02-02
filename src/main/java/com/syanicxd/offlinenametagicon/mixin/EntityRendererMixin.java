@@ -18,108 +18,81 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin<T extends Entity> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("offlinenametagiconMod");
-    private static final Identifier BADGE_TEXTURE = new Identifier(offlinenametagiconMod.MOD_ID, "textures/badge.png");
-    private boolean isCurrentPlayer(PlayerEntity player) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        return client.player != null && client.player.getUuid().equals(player.getUuid());
-    }
+    private static final Identifier BADGE_TEXTURE = Identifier.of(offlinenametagiconMod.MOD_ID, "textures/badge.png");
 
     @Inject(method = "renderLabelIfPresent", at = @At("TAIL"))
-    private void renderBadge(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        LOGGER.info("Attempting to render badge for entity: {}", entity);
+    private void renderBadge(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
         if (entity instanceof PlayerEntity && isCurrentPlayer((PlayerEntity) entity)) {
-            LOGGER.info("Entity is the current player");
-
             MinecraftClient client = MinecraftClient.getInstance();
+            Entity cameraEntity = client.getCameraEntity();
+            if (cameraEntity == null) return;
 
-            float nametagHeight = 10.0F; // Minecraft's default font height
-
-            float nametagWidth = client.textRenderer.getWidth(text);
+            int textWidth = client.textRenderer.getWidth(text);
+            float badgeSize = 10.0F;
             float yOffset = entity.getHeight() + 0.5F;
 
             matrices.push();
             matrices.translate(0.0, yOffset, 0.0);
 
-            // Check if we're rendering in the inventory
-            boolean isInventory = client.currentScreen != null;
+            // Simplified rotation/scaling
+            matrices.multiply(client.gameRenderer.getCamera().getRotation());
+            matrices.scale(-0.025F, -0.025F, 0.025F);
 
-            if (isInventory) {
-                // Inventory rendering adjustments (needs to fix)
-                matrices.multiply(client.gameRenderer.getCamera().getRotation().conjugate());
-                matrices.scale(0.025F, -0.025F, 0.025F);
-            } else {
-                // In-game rendering
-                matrices.multiply(client.gameRenderer.getCamera().getRotation());
-                matrices.scale(-0.025F, -0.025F, 0.025F);
-            }
+            float badgeX = textWidth / 2 + 1; 
+            float badgeY = -badgeSize / 10;
 
-            float badgeSize = nametagHeight;
-            float badgeX = isInventory ? nametagWidth / 2 + 1 : -nametagWidth / 2 - badgeSize - 1; 
-            float badgeY = -nametagHeight / 10; 
-
-            renderBadgeIcon(matrices, vertexConsumers, light, badgeX, badgeY, badgeSize, isInventory);
+            renderBadgeIcon(matrices, vertexConsumers, light, badgeX, badgeY, badgeSize);
 
             matrices.pop();
-        } else {
-            LOGGER.info("Entity is not the current player");
         }
     }
 
-    private void renderBadgeIcon(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float x, float y, float size, boolean isInventory) {
-        LOGGER.info("Attempting to render badge icon");
+    private void renderBadgeIcon(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float x, float y, float size) {
         matrices.push();
         matrices.translate(x, y, 0);
 
-        if (isInventory) {
-            matrices.scale(-1, 1, 1); // (needs to fix)
-        }
+        VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getEntityTranslucent(BADGE_TEXTURE));
+        Matrix4f matrix = matrices.peek().getPositionMatrix(); // <-- Now uses JOML's Matrix4f
 
-        VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getEntityCutout(BADGE_TEXTURE));
-
-        MinecraftClient.getInstance().getTextureManager().bindTexture(BADGE_TEXTURE);
-        LOGGER.info("Texture bound: {}", BADGE_TEXTURE);
-
-        float u0 = 0;
-        float u1 = 1;
-        float v0 = 0;
-        float v1 = 1;
-        int color = 0xFFFFFFFF;  // White color
-
-        buffer.vertex(matrices.peek().getPositionMatrix(), 0, size, 0)
-            .color(color)
-            .texture(u0, v1)
+        // Define vertices for the badge
+        buffer.vertex(matrix, 0, size, 0)
+            .color(0xFFFFFFFF)
+            .texture(0, 1)
             .overlay(OverlayTexture.DEFAULT_UV)
             .light(light)
-            .normal(0, 0, 1)
-            .next();
-        buffer.vertex(matrices.peek().getPositionMatrix(), size, size, 0)
-            .color(color)
-            .texture(u1, v1)
+            .normal(0, 0, 1);
+        buffer.vertex(matrix, size, size, 0)
+            .color(0xFFFFFFFF)
+            .texture(1, 1)
             .overlay(OverlayTexture.DEFAULT_UV)
             .light(light)
-            .normal(0, 0, 1)
-            .next();
-        buffer.vertex(matrices.peek().getPositionMatrix(), size, 0, 0)
-            .color(color)
-            .texture(u1, v0)
+            .normal(0, 0, 1);
+        buffer.vertex(matrix, size, 0, 0)
+            .color(0xFFFFFFFF)
+            .texture(1, 0)
             .overlay(OverlayTexture.DEFAULT_UV)
             .light(light)
-            .normal(0, 0, 1)
-            .next();
-        buffer.vertex(matrices.peek().getPositionMatrix(), 0, 0, 0)
-            .color(color)
-            .texture(u0, v0)
+            .normal(0, 0, 1);
+        buffer.vertex(matrix, 0, 0, 0)
+            .color(0xFFFFFFFF)
+            .texture(0, 0)
             .overlay(OverlayTexture.DEFAULT_UV)
             .light(light)
-            .normal(0, 0, 1)
-            .next();
+            .normal(0, 0, 1);
 
-        LOGGER.info("Badge icon drawn");
         matrices.pop();
+    }
+
+    private boolean isCurrentPlayer(PlayerEntity player) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        return client.player != null && client.player.getUuid().equals(player.getUuid());
     }
 }
